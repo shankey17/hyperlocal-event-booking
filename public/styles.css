@@ -1,0 +1,19 @@
+.hero-section {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.feature-box {
+  border: 1px solid #e9ecef;
+}
+
+.card {
+  border-radius: 1rem;
+}
+
+#venueResults .card {
+  height: 100%;
+}
+
+.badge {
+  letter-spacing: 0.03em;
+}

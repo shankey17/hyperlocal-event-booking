@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hyperlocal Event & Venue Booking System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/">Hyperlocal Booking</a>
+    <div class="ms-auto">
+      <a class="btn btn-outline-light btn-sm me-2" href="/">Home</a>
+      <a class="btn btn-warning btn-sm" href="/search">Search Venues</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero-section py-5">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="badge text-bg-primary mb-3">Demo Full Stack Project</span>
+        <h1 class="display-5 fw-bold">Hyperlocal Event & Venue Booking System</h1>
+        <p class="lead text-muted mt-3">
+          A simple database-driven platform for venue discovery, enquiry collection, and availability checking.
+          Designed for college demonstration with MySQL, Node.js, and Bootstrap.
+        </p>
+        <div class="row g-3 mt-4">
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Venue Discovery</strong>
+              <p class="mb-0 text-muted">Search venues by city and guest count.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Availability Check</strong>
+              <p class="mb-0 text-muted">See room availability by date and time.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Survey Lead Capture</strong>
+              <p class="mb-0 text-muted">Collect enquiry details for follow-up.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="card shadow border-0">
+          <div class="card-body p-4">
+            <h3 class="h4 fw-bold mb-2">Enquiry / Signup</h3>
+            <p class="text-muted mb-4">Submit your details to continue to venue search.</p>
+
+            <form id="signupForm" class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Full Name</label>
+                <input id="fullName" class="form-control" type="text" placeholder="Enter your name" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input id="email" class="form-control" type="email" placeholder="name@example.com" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Phone</label>
+                <input id="phone" class="form-control" type="text" placeholder="Mobile number" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Preferred City</label>
+                <input id="preferredCity" class="form-control" type="text" placeholder="Kolkata" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Event Type</label>
+                <select id="eventType" class="form-select" required>
+                  <option value="">Select</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="wedding">Wedding</option>
+                  <option value="corporate">Corporate</option>
+                  <option value="social">Social</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-12 d-grid">
+                <button class="btn btn-primary btn-lg" type="submit">Submit Enquiry</button>
+              </div>
+            </form>
+
+            <div id="signupMsg" class="alert mt-3 d-none" role="alert"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="py-5">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">Venue Booking</h5>
+            <p class="card-text text-muted">Find suitable venues for birthday parties, weddings, meetings, and social events.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">Venue Services</h5>
+            <p class="card-text text-muted">Show additional service vendors such as catering and decoration support.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">Database Demonstration</h5>
+            <p class="card-text text-muted">The system stores leads in MySQL and uses backend APIs to fetch venue data dynamically.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-const fs = require('fs');
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
@@ -9,10 +8,11 @@ const pool = mysql.createPool({
   port: Number(process.env.DB_PORT),
 
   ssl: {
-    ca: fs.readFileSync('./ca.pem')
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: false
   },
 
-  connectTimeout: 20000
+  connectTimeout: 30000
 });
 
 module.exports = pool;

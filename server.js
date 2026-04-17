@@ -1,25 +1,71 @@
 require('dotenv').config();
-const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const db      = require('./db');
+const express      = require('express');
+const cors         = require('cors');
+const path         = require('path');
+const bcrypt       = require('bcryptjs');
+const session      = require('express-session');
+const MySQLStore   = require('connect-mysql2')(session);
+const db           = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// ── Session store (sessions saved in MySQL UserSession table) ─────────────────
+const sessionStore = new MySQLStore({
+  expiration:          86400000, // 1 day in ms
+  createDatabaseTable: false,    // table already created in schema.sql
+  schema: {
+    tableName:    'UserSession',
+    columnNames: {
+      session_id: 'session_id',
+      expires:    'expires',
+      data:       'data'
+    }
+  }
+}, db);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(session({
+  secret:            process.env.SESSION_SECRET || 'hyperlocal_secret_key',
+  store:             sessionStore,
+  resave:            false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge:   86400000, // 1 day
+    httpOnly: true,
+    sameSite: 'lax'
+  }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Auth middleware: blocks unauthenticated access to protected API routes ────
+function requireAuth(req, res, next) {
+  if (req.session && req.session.customerId) return next();
+  res.status(401).json({ success: false, message: 'Please log in to continue.' });
+}
 
 // ── Page routes ───────────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/search', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'search.html'));
+app.get('/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/signup', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'signup.html'));
+});
+
+// /search is protected: unauthenticated users are redirected to /login
+app.get('/search', (req, res) => {
+  if (req.session && req.session.customerId) {
+    return res.sendFile(path.join(__dirname, 'public', 'search.html'));
+  }
+  res.redirect('/login');
 });
 
 // ── Health check ──────────────────────────────────────────────────────────────
@@ -32,45 +78,126 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
-// ── POST /api/signup ──────────────────────────────────────────────────────────
-// Saves a homepage enquiry into SurveyLead and redirects the user to /search.
-app.post('/api/signup', async (req, res) => {
+// ── POST /api/auth/signup ─────────────────────────────────────────────────────
+// Creates a new Customer account with a hashed password.
+app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { fullName, email, phone, preferredCity, eventType } = req.body;
+    const { firstName, lastName, email, phone, password, preferredCity, eventType } = req.body;
 
-    if (!fullName || !email || !phone || !preferredCity || !eventType) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required.'
-      });
+    if (!firstName || !lastName || !email || !phone || !password || !preferredCity || !eventType) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
 
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
     const [result] = await db.query(
-      `INSERT INTO SurveyLead (full_name, email, phone, preferred_city, event_type)
-       VALUES (?, ?, ?, ?, ?)`,
-      [fullName.trim(), email.trim(), phone.trim(), preferredCity.trim(), eventType.trim()]
+      `INSERT INTO Customer (first_name, last_name, email, phone, password_hash, preferred_city, event_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        firstName.trim(), lastName.trim(), email.trim(),
+        phone.trim(), passwordHash, preferredCity.trim(), eventType.trim()
+      ]
     );
+
+    // Log the user in immediately after signup
+    req.session.customerId  = result.insertId;
+    req.session.customerName = `${firstName.trim()} ${lastName.trim()}`;
 
     res.status(201).json({
       success: true,
-      message: 'Enquiry saved successfully.',
-      leadId: result.insertId
+      message: 'Account created successfully.',
+      customer: { id: result.insertId, name: req.session.customerName }
     });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({
-        success: false,
-        message: 'This email or phone number has already been registered.'
-      });
+      return res.status(409).json({ success: false, message: 'Email or phone already registered.' });
     }
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
+// Verifies credentials and creates a session.
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    }
+
+    const [rows] = await db.query(
+      `SELECT customer_id, first_name, last_name, password_hash, preferred_city, event_type
+       FROM Customer WHERE email = ?`,
+      [email.trim()]
+    );
+
+    if (!rows.length) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    const customer    = rows[0];
+    const passwordOk  = await bcrypt.compare(password, customer.password_hash);
+
+    if (!passwordOk) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    // Save user info in session
+    req.session.customerId     = customer.customer_id;
+    req.session.customerName   = `${customer.first_name} ${customer.last_name}`;
+    req.session.preferredCity  = customer.preferred_city;
+    req.session.eventType      = customer.event_type;
+
+    res.json({
+      success: true,
+      message: 'Logged in successfully.',
+      customer: {
+        id:            customer.customer_id,
+        name:          req.session.customerName,
+        preferredCity: customer.preferred_city,
+        eventType:     customer.event_type
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /api/auth/logout ─────────────────────────────────────────────────────
+// Destroys the session on both server (DB) and client.
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ success: false, message: 'Logout failed.' });
+    res.clearCookie('connect.sid');
+    res.json({ success: true, message: 'Logged out successfully.' });
+  });
+});
+
+// ── GET /api/auth/me ──────────────────────────────────────────────────────────
+// Returns the currently logged-in user's basic info (used on page load).
+app.get('/api/auth/me', (req, res) => {
+  if (req.session && req.session.customerId) {
+    return res.json({
+      success: true,
+      customer: {
+        id:            req.session.customerId,
+        name:          req.session.customerName,
+        preferredCity: req.session.preferredCity,
+        eventType:     req.session.eventType
+      }
+    });
+  }
+  res.status(401).json({ success: false, message: 'Not logged in.' });
+});
+
 // ── GET /api/venues ───────────────────────────────────────────────────────────
-// Query params: city (optional), guests (optional), start (required), end (required)
-// Returns venues with per-room availability for the requested time slot.
-app.get('/api/venues', async (req, res) => {
+// Protected. Query params: city (opt), guests (opt), start (req), end (req)
+app.get('/api/venues', requireAuth, async (req, res) => {
   try {
     const city   = (req.query.city  || '').trim();
     const guests = req.query.guests ? Number(req.query.guests) : null;
@@ -78,34 +205,20 @@ app.get('/api/venues', async (req, res) => {
     const end    = (req.query.end   || '').trim();
 
     if (!start || !end) {
-      return res.status(400).json({
-        success: false,
-        message: 'start and end datetime are required.'
-      });
+      return res.status(400).json({ success: false, message: 'start and end datetime are required.' });
     }
 
     const startDate = new Date(start);
     const endDate   = new Date(end);
 
     if (isNaN(startDate) || isNaN(endDate) || endDate <= startDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid start or end datetime.'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid start or end datetime.' });
     }
 
-    // Build venue query with optional filters
     let venueSql = `
       SELECT
-        v.venue_id,
-        v.name,
-        v.street,
-        v.city,
-        v.state,
-        v.pincode,
-        v.max_capacity,
-        v.base_rate_per_hour,
-        v.amenities,
+        v.venue_id, v.name, v.street, v.city, v.state, v.pincode,
+        v.max_capacity, v.base_rate_per_hour, v.amenities,
         o.owner_id,
         o.first_name  AS owner_first_name,
         o.last_name   AS owner_last_name,
@@ -138,22 +251,14 @@ app.get('/api/venues', async (req, res) => {
 
     const [venues] = await db.query(venueSql, venueParams);
 
-    if (!venues.length) {
-      return res.json({ success: true, venues: [] });
-    }
+    if (!venues.length) return res.json({ success: true, venues: [] });
 
-    // Fetch rooms for all matched venues with availability flag
-    const venueIds        = venues.map(v => v.venue_id);
+    const venueIds         = venues.map(v => v.venue_id);
     const roomPlaceholders = venueIds.map(() => '?').join(',');
 
     const [rooms] = await db.query(
       `SELECT
-        r.room_id,
-        r.venue_id,
-        r.room_no,
-        r.room_name,
-        r.capacity,
-        r.hourly_rate,
+        r.room_id, r.venue_id, r.room_no, r.room_name, r.capacity, r.hourly_rate,
         CASE
           WHEN EXISTS (
             SELECT 1 FROM RoomReservation rr
@@ -169,15 +274,14 @@ app.get('/api/venues', async (req, res) => {
       [end, start, ...venueIds]
     );
 
-    // Group rooms by venue
     const roomsByVenue = rooms.reduce((acc, room) => {
       if (!acc[room.venue_id]) acc[room.venue_id] = [];
       acc[room.venue_id].push({
-        room_id:     room.room_id,
-        room_no:     room.room_no,
-        room_name:   room.room_name,
-        capacity:    Number(room.capacity),
-        hourly_rate: Number(room.hourly_rate),
+        room_id:      room.room_id,
+        room_no:      room.room_no,
+        room_name:    room.room_name,
+        capacity:     Number(room.capacity),
+        hourly_rate:  Number(room.hourly_rate),
         is_available: Boolean(room.is_available)
       });
       return acc;
@@ -186,20 +290,16 @@ app.get('/api/venues', async (req, res) => {
     const data = venues.map(venue => {
       const venueRooms         = roomsByVenue[venue.venue_id] || [];
       const availableRoomCount = venueRooms.filter(r => r.is_available).length;
-
       return {
-        venue_id:          venue.venue_id,
-        name:              venue.name,
-        street:            venue.street,
-        city:              venue.city,
-        state:             venue.state,
-        pincode:           venue.pincode,
-        max_capacity:      Number(venue.max_capacity),
+        venue_id:           venue.venue_id,
+        name:               venue.name,
+        street:             venue.street,
+        city:               venue.city,
+        state:              venue.state,
+        pincode:            venue.pincode,
+        max_capacity:       Number(venue.max_capacity),
         base_rate_per_hour: Number(venue.base_rate_per_hour),
-        // amenities column is a comma-separated string stored on the Venue row
-        amenities: venue.amenities
-          ? venue.amenities.split(',').map(a => a.trim())
-          : [],
+        amenities: venue.amenities ? venue.amenities.split(',').map(a => a.trim()) : [],
         owner: {
           owner_id: venue.owner_id,
           name:     `${venue.owner_first_name} ${venue.owner_last_name}`,
@@ -220,12 +320,10 @@ app.get('/api/venues', async (req, res) => {
 });
 
 // ── GET /api/venues/:id ───────────────────────────────────────────────────────
-app.get('/api/venues/:id', async (req, res) => {
+app.get('/api/venues/:id', requireAuth, async (req, res) => {
   try {
     const venueId = Number(req.params.id);
-    if (!venueId) {
-      return res.status(400).json({ success: false, message: 'Invalid venue id.' });
-    }
+    if (!venueId) return res.status(400).json({ success: false, message: 'Invalid venue id.' });
 
     const [venues] = await db.query(
       `SELECT
@@ -242,9 +340,7 @@ app.get('/api/venues/:id', async (req, res) => {
       [venueId]
     );
 
-    if (!venues.length) {
-      return res.status(404).json({ success: false, message: 'Venue not found.' });
-    }
+    if (!venues.length) return res.status(404).json({ success: false, message: 'Venue not found.' });
 
     const [rooms] = await db.query(
       `SELECT room_id, room_no, room_name, capacity, hourly_rate
@@ -264,9 +360,7 @@ app.get('/api/venues/:id', async (req, res) => {
         pincode:            v.pincode,
         max_capacity:       Number(v.max_capacity),
         base_rate_per_hour: Number(v.base_rate_per_hour),
-        amenities: v.amenities
-          ? v.amenities.split(',').map(a => a.trim())
-          : [],
+        amenities: v.amenities ? v.amenities.split(',').map(a => a.trim()) : [],
         owner: {
           owner_id: v.owner_id,
           name:     `${v.owner_first_name} ${v.owner_last_name}`,

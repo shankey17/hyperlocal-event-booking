@@ -1,8 +1,9 @@
+// app.js — Search page logic only.
+// Auth (login / signup / logout) is handled by inline scripts on each page.
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function qs(id) {
-  return document.getElementById(id);
-}
+function qs(id) { return document.getElementById(id); }
 
 function showMessage(el, text, type = 'info') {
   if (!el) return;
@@ -15,49 +16,7 @@ function hideMessage(el) {
   if (el) el.classList.add('d-none');
 }
 
-// ── Homepage: Enquiry / Signup form ──────────────────────────────────────────
-
-function setupSignupForm() {
-  const form = qs('signupForm');
-  if (!form) return; // not on the homepage
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const msg = qs('signupMsg');
-    hideMessage(msg);
-
-    const payload = {
-      fullName:      qs('fullName').value.trim(),
-      email:         qs('email').value.trim(),
-      phone:         qs('phone').value.trim(),
-      preferredCity: qs('preferredCity').value.trim(),
-      eventType:     qs('eventType').value.trim()
-    };
-
-    try {
-      const res  = await fetch('/api/signup', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload)
-      });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message || 'Signup failed');
-
-      // Save preferences so the search page can pre-fill city / event type
-      localStorage.setItem('hyperlocal_preferred_city', payload.preferredCity);
-      localStorage.setItem('hyperlocal_event_type',     payload.eventType);
-
-      showMessage(msg, 'Enquiry saved! Redirecting to venue search…', 'success');
-      setTimeout(() => { window.location.href = '/search'; }, 900);
-
-    } catch (err) {
-      showMessage(msg, err.message, 'danger');
-    }
-  });
-}
-
-// ── Search page: Venue cards ──────────────────────────────────────────────────
+// ── Venue card rendering ──────────────────────────────────────────────────────
 
 function availabilityBadgeClass(status) {
   if (status === 'Available')    return 'bg-success';
@@ -96,25 +55,20 @@ function renderVenueCard(venue) {
               ${venue.availability_status}
             </span>
           </div>
-
           <hr>
-
           <p class="mb-1"><strong>Max Capacity:</strong> ${venue.max_capacity}</p>
           <p class="mb-1"><strong>Base Rate:</strong> ₹${venue.base_rate_per_hour}/hr</p>
           <p class="mb-1"><strong>Owner:</strong> ${venue.owner.name}</p>
           <p class="mb-1"><strong>Email:</strong> ${venue.owner.email}</p>
           <p class="mb-3"><strong>Phone:</strong> ${venue.owner.phone}</p>
-
           <div class="mb-3">
             <strong class="d-block mb-1">Amenities</strong>
             ${amenityBadges}
           </div>
-
           <div>
             <strong class="d-block mb-2">Rooms</strong>
             <ul class="list-group list-group-flush border rounded">${roomItems}</ul>
           </div>
-
           <div class="mt-3 small text-muted">
             Available rooms: ${venue.available_room_count} / ${venue.room_count}
           </div>
@@ -123,8 +77,10 @@ function renderVenueCard(venue) {
     </div>`;
 }
 
+// ── Search form ───────────────────────────────────────────────────────────────
+
 async function searchVenues() {
-  const results  = qs('venueResults');
+  const results   = qs('venueResults');
   const statusMsg = qs('statusMsg');
   if (!results) return;
 
@@ -150,7 +106,12 @@ async function searchVenues() {
     const res  = await fetch(`/api/venues?${params}`);
     const data = await res.json();
 
-    if (!res.ok) throw new Error(data.message || 'Failed to fetch venues');
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+
+    if (!res.ok) throw new Error(data.message || 'Failed to fetch venues.');
 
     if (!data.venues.length) {
       results.innerHTML = '<div class="col-12"><div class="alert alert-warning">No venues found for the selected filters.</div></div>';
@@ -165,24 +126,13 @@ async function searchVenues() {
   }
 }
 
-// ── Search page: setup ────────────────────────────────────────────────────────
+// ── Setup search page ─────────────────────────────────────────────────────────
 
-function setupSearchPage() {
-  const searchForm = qs('searchForm');
-  if (!searchForm) return; // not on the search page
-
-  // Pre-fill city from localStorage if set by signup form
-  const savedCity      = localStorage.getItem('hyperlocal_preferred_city') || '';
-  const savedEventType = localStorage.getItem('hyperlocal_event_type')     || '';
-
-  if (qs('city') && savedCity)           qs('city').value      = savedCity;
-  if (qs('eventType') && savedEventType) qs('eventType').value = savedEventType;
-
-  // Reset button clears results and fields
-  const resetBtn = qs('loadAllBtn');
+const searchForm = qs('searchForm');
+if (searchForm) {
+  const resetBtn = qs('resetBtn');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      if (qs('city'))   qs('city').value   = savedCity;
       if (qs('guests')) qs('guests').value = '';
       if (qs('start'))  qs('start').value  = '';
       if (qs('end'))    qs('end').value    = '';
@@ -197,7 +147,3 @@ function setupSearchPage() {
     await searchVenues();
   });
 }
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
-setupSignupForm();
-setupSearchPage();

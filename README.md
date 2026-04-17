@@ -1,6 +1,6 @@
 # Hyperlocal Event & Venue Booking System
 
-A full-stack DBMS demo project — Node.js + Express backend, MySQL database (Aiven), hosted on Railway.
+A full-stack DBMS demo project — Node.js + Express backend, MySQL (Aiven), hosted on Railway.
 
 ---
 
@@ -8,15 +8,17 @@ A full-stack DBMS demo project — Node.js + Express backend, MySQL database (Ai
 
 ```
 hyperlocal_event_booking/
-├── server.js          ← Express server + all API routes
+├── server.js          ← Express server, all API routes, session setup
 ├── db.js              ← MySQL connection pool (uses DATABASE_URL)
 ├── schema.sql         ← Full DB schema + sample data (run once on Aiven)
 ├── package.json
 ├── README.md
 └── public/
-    ├── index.html     ← Homepage with enquiry form
-    ├── search.html    ← Venue search + availability page
-    ├── app.js         ← Frontend JS (fetch calls, rendering)
+    ├── index.html     ← Landing page (no auth required)
+    ├── login.html     ← Login page
+    ├── signup.html    ← Signup page
+    ├── search.html    ← Venue search (login required)
+    ├── app.js         ← Search page JS (venue fetch + rendering)
     └── styles.css
 ```
 
@@ -27,27 +29,40 @@ hyperlocal_event_booking/
 | Table | Purpose |
 |---|---|
 | `Owner` | Venue owners |
-| `Venue` | Venue details (includes `amenities` as a comma-separated column) |
-| `Amenity` / `VenueAmenity` | Normalized amenity reference (for DBMS demo) |
+| `Venue` | Venue details with amenities column |
+| `Amenity` / `VenueAmenity` | Normalized amenity reference |
 | `Room` | Rooms inside each venue |
-| `Customer` | Customers |
+| `Customer` | User accounts (stores password_hash, preferred_city, event_type) |
+| `UserSession` | Active login sessions stored in MySQL (managed by express-session) |
 | `Event` / `EventType` | Event details and type lookup |
-| `Booking` / `BookingStatus` | Bookings with status FK |
+| `Booking` / `BookingStatus` | Bookings with FK status |
 | `Payment` / `PaymentStatus` | Payment records |
-| `ServiceVendor` / `BookingService` | External vendors and booked services |
+| `ServiceVendor` / `BookingService` | Vendors and booked services |
 | `RoomReservation` | Time-slot reservations; overlap prevented by trigger |
-| `SurveyLead` | Enquiry form submissions from the homepage |
+
+---
+
+## Auth flow
+
+1. User signs up → password hashed with **bcrypt** → stored in `Customer.password_hash`
+2. Login → password compared with bcrypt → session created and saved in **MySQL `UserSession` table**
+3. Session cookie sent to browser → every subsequent request carries it automatically
+4. `/search` page and `/api/venues` routes check for a valid session — redirect/401 if missing
+5. Logout → session destroyed in DB and cookie cleared
 
 ---
 
 ## API endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/health` | DB connectivity check |
-| POST | `/api/signup` | Save homepage enquiry to `SurveyLead` |
-| GET | `/api/venues?city=&guests=&start=&end=` | Search venues with room availability |
-| GET | `/api/venues/:id` | Single venue detail |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/health` | No | DB connectivity check |
+| POST | `/api/auth/signup` | No | Register new customer account |
+| POST | `/api/auth/login` | No | Login and create session |
+| POST | `/api/auth/logout` | Yes | Destroy session |
+| GET | `/api/auth/me` | Yes | Get logged-in user info |
+| GET | `/api/venues?city=&guests=&start=&end=` | Yes | Search venues with availability |
+| GET | `/api/venues/:id` | Yes | Single venue detail |
 
 ---
 
@@ -61,10 +76,11 @@ hyperlocal_event_booking/
 3. Create a `.env` file:
    ```
    DATABASE_URL=mysql://user:password@host:port/defaultdb?ssl-mode=REQUIRED
+   SESSION_SECRET=any_long_random_string
    PORT=3000
    ```
-4. Run `schema.sql` once in your MySQL client (Aiven or local).
-5. Start the server:
+4. Run `schema.sql` once in your MySQL client.
+5. Start:
    ```bash
    npm start
    ```
@@ -72,51 +88,29 @@ hyperlocal_event_booking/
 
 ---
 
-## Deployment
+## Deployment (Railway + Aiven)
 
-### Aiven (MySQL)
-
-1. Create an **Aiven MySQL** service.
-2. From the Aiven console, copy the **Service URI** — it looks like:
-   ```
-   mysql://avnadmin:password@host:port/defaultdb?ssl-mode=REQUIRED
-   ```
-3. Open **Query Editor** (or connect via MySQL Workbench) and run `schema.sql`.
+### Aiven
+1. Create an Aiven MySQL service.
+2. Copy the **Service URI** from the Aiven console.
+3. Run `schema.sql` via the Aiven Query Editor or MySQL Workbench.
 
 ### Railway
-
-1. Push the project to GitHub.
-2. On Railway: **New Project → Deploy from GitHub repo**.
-3. Add one environment variable:
+1. Push project to GitHub.
+2. New Project → Deploy from GitHub repo.
+3. Add environment variables:
    ```
-   DATABASE_URL = <your Aiven Service URI>
+   DATABASE_URL = <Aiven Service URI>
+   SESSION_SECRET = <any long random string>
    ```
-   Railway sets `PORT` automatically — no need to add it.
-4. Set the start command (Railway usually auto-detects from `package.json`):
-   ```
-   node server.js
-   ```
-5. Deploy. Railway will run `npm install` and start the server.
-
-> **Important:** Do not add `DB_HOST`, `DB_USER`, etc. separately.  
-> This project only uses `DATABASE_URL`. Aiven's Service URI already contains all credentials.
+   Railway sets `PORT` automatically.
+4. Deploy — Railway runs `npm install` and `node server.js` automatically.
 
 ---
 
-## How availability checking works
+## Demo credentials (from sample data)
 
-When you search with a time slot, the backend runs this check per room:
-
-```sql
-CASE
-  WHEN EXISTS (
-    SELECT 1 FROM RoomReservation rr
-    WHERE rr.room_id = r.room_id
-      AND ? < rr.reserved_to    -- your start < existing end
-      AND ? > rr.reserved_from  -- your end   > existing start
-  ) THEN 0   -- overlaps → Booked
-  ELSE 1     -- no overlap → Available
-END AS is_available
-```
-
-A trigger (`trg_no_overlap`) also prevents overlapping inserts at the DB level.
+| Email | Password |
+|---|---|
+| c1@mail.com | password123 |
+| c2@mail.com | password123 |

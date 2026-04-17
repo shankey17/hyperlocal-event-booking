@@ -14,7 +14,7 @@ USE defaultdb;
 
 CREATE TABLE `BookingStatus` (
   status_id INT AUTO_INCREMENT PRIMARY KEY,
-  name      VARCHAR(50) UNIQUE NOT NULL
+  name VARCHAR(50) UNIQUE NOT NULL
 );
 
 INSERT INTO `BookingStatus` (name)
@@ -22,7 +22,7 @@ VALUES ('pending'), ('confirmed'), ('cancelled');
 
 CREATE TABLE `PaymentStatus` (
   status_id INT AUTO_INCREMENT PRIMARY KEY,
-  name      VARCHAR(50) UNIQUE NOT NULL
+  name VARCHAR(50) UNIQUE NOT NULL
 );
 
 INSERT INTO `PaymentStatus` (name)
@@ -30,14 +30,14 @@ VALUES ('pending'), ('partially_paid'), ('paid'), ('failed'), ('refunded');
 
 CREATE TABLE `EventType` (
   type_id INT AUTO_INCREMENT PRIMARY KEY,
-  name    VARCHAR(50) UNIQUE NOT NULL
+  name VARCHAR(50) UNIQUE NOT NULL
 );
 
 INSERT INTO `EventType` (name)
 VALUES ('birthday'), ('wedding'), ('corporate'), ('social'), ('other');
 
 -- =====================
--- OWNER
+-- CORE TABLES
 -- =====================
 
 CREATE TABLE `Owner` (
@@ -51,25 +51,21 @@ CREATE TABLE `Owner` (
   updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- =====================
--- VENUE
--- amenities stored as a comma-separated string column for easy display.
--- VenueAmenity junction table is kept alongside for normalized demo.
--- =====================
-
+-- NOTE: amenities stored as comma-separated string for easy display.
+-- VenueAmenity junction table is also kept for normalized reference.
 CREATE TABLE `Venue` (
-  venue_id           INT AUTO_INCREMENT PRIMARY KEY,
-  owner_id           INT NOT NULL,
-  name               VARCHAR(120) NOT NULL,
-  street             VARCHAR(150),
-  city               VARCHAR(80),
-  state              VARCHAR(80),
-  pincode            VARCHAR(10),
-  max_capacity       INT,
+  venue_id          INT AUTO_INCREMENT PRIMARY KEY,
+  owner_id          INT NOT NULL,
+  name              VARCHAR(120) NOT NULL,
+  street            VARCHAR(150),
+  city              VARCHAR(80),
+  state             VARCHAR(80),
+  pincode           VARCHAR(10),
+  max_capacity      INT,
   base_rate_per_hour DECIMAL(10,2),
-  amenities          VARCHAR(500),
-  created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  amenities         VARCHAR(500),           -- e.g. 'WiFi, Parking, AC'
+  created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES `Owner`(owner_id)
 ) ENGINE=InnoDB;
 
@@ -86,7 +82,7 @@ CREATE TABLE `VenueAmenity` (
   venue_id   INT,
   amenity_id INT,
   PRIMARY KEY (venue_id, amenity_id),
-  FOREIGN KEY (venue_id)   REFERENCES `Venue`(venue_id)    ON DELETE CASCADE,
+  FOREIGN KEY (venue_id)   REFERENCES `Venue`(venue_id)   ON DELETE CASCADE,
   FOREIGN KEY (amenity_id) REFERENCES `Amenity`(amenity_id) ON DELETE CASCADE
 );
 
@@ -95,45 +91,28 @@ CREATE TABLE `VenueAmenity` (
 -- =====================
 
 CREATE TABLE `Room` (
-  room_id     INT AUTO_INCREMENT PRIMARY KEY,
-  venue_id    INT NOT NULL,
-  room_no     VARCHAR(20),
-  room_name   VARCHAR(100),
-  capacity    INT,
+  room_id    INT AUTO_INCREMENT PRIMARY KEY,
+  venue_id   INT NOT NULL,
+  room_no    VARCHAR(20),
+  room_name  VARCHAR(100),
+  capacity   INT,
   hourly_rate DECIMAL(10,2),
   UNIQUE (venue_id, room_no),
   FOREIGN KEY (venue_id) REFERENCES `Venue`(venue_id) ON DELETE CASCADE
 );
 
 -- =====================
--- CUSTOMER (also the user account table)
--- password_hash stores the bcrypt hash of the user's password.
--- preferred_city and event_type are collected at signup (replaces SurveyLead).
+-- CUSTOMER
 -- =====================
 
 CREATE TABLE `Customer` (
-  customer_id    INT AUTO_INCREMENT PRIMARY KEY,
-  first_name     VARCHAR(50)  NOT NULL,
-  last_name      VARCHAR(50)  NOT NULL,
-  email          VARCHAR(100) UNIQUE NOT NULL,
-  phone          VARCHAR(15)  UNIQUE NOT NULL,
-  password_hash  VARCHAR(255) NOT NULL,
-  preferred_city VARCHAR(80),
-  event_type     VARCHAR(50),
-  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  customer_id INT AUTO_INCREMENT PRIMARY KEY,
+  first_name  VARCHAR(50),
+  last_name   VARCHAR(50),
+  email       VARCHAR(100) UNIQUE,
+  phone       VARCHAR(15)  UNIQUE,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- =====================
--- USER SESSION
--- Stores active login sessions in the database.
--- express-session with connect-mysql2 manages this table automatically.
--- =====================
-
-CREATE TABLE `UserSession` (
-  session_id VARCHAR(128) NOT NULL PRIMARY KEY,
-  expires    INT UNSIGNED NOT NULL,
-  data       MEDIUMTEXT
-) ENGINE=InnoDB;
 
 -- =====================
 -- EVENT
@@ -231,8 +210,25 @@ CREATE INDEX idx_rr_room_time
   ON `RoomReservation`(room_id, reserved_from, reserved_to);
 
 -- =====================
+-- SURVEY LEAD
+-- Stores homepage enquiry form submissions
+-- =====================
+
+CREATE TABLE `SurveyLead` (
+  lead_id        INT AUTO_INCREMENT PRIMARY KEY,
+  full_name      VARCHAR(120) NOT NULL,
+  email          VARCHAR(100) UNIQUE NOT NULL,
+  phone          VARCHAR(15)  UNIQUE NOT NULL,
+  preferred_city VARCHAR(80),
+  event_type     VARCHAR(50),
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================
 -- TRIGGER: Prevent overlapping room reservations
 -- =====================
+
+DROP TRIGGER IF EXISTS trg_no_overlap;
 
 DELIMITER $$
 
@@ -259,18 +255,18 @@ DELIMITER ;
 
 -- OWNER
 INSERT INTO `Owner` (first_name, last_name, email, phone) VALUES
-('Amit',  'Sharma', 'amit1@mail.com',   '9000000001'),
-('Neha',  'Verma',  'neha2@mail.com',   '9000000002'),
-('Raj',   'Singh',  'raj3@mail.com',    '9000000003'),
-('Pooja', 'Mehta',  'pooja4@mail.com',  '9000000004'),
-('Karan', 'Patel',  'karan5@mail.com',  '9000000005'),
-('Sneha', 'Rao',    'sneha6@mail.com',  '9000000006'),
-('Vikas', 'Gupta',  'vikas7@mail.com',  '9000000007'),
-('Anita', 'Das',    'anita8@mail.com',  '9000000008'),
-('Rohit', 'Nair',   'rohit9@mail.com',  '9000000009'),
-('Divya', 'Iyer',   'divya10@mail.com', '9000000010');
+('Amit',  'Sharma', 'amit1@mail.com',  '9000000001'),
+('Neha',  'Verma',  'neha2@mail.com',  '9000000002'),
+('Raj',   'Singh',  'raj3@mail.com',   '9000000003'),
+('Pooja', 'Mehta',  'pooja4@mail.com', '9000000004'),
+('Karan', 'Patel',  'karan5@mail.com', '9000000005'),
+('Sneha', 'Rao',    'sneha6@mail.com', '9000000006'),
+('Vikas', 'Gupta',  'vikas7@mail.com', '9000000007'),
+('Anita', 'Das',    'anita8@mail.com', '9000000008'),
+('Rohit', 'Nair',   'rohit9@mail.com', '9000000009'),
+('Divya', 'Iyer',   'divya10@mail.com','9000000010');
 
--- VENUE
+-- VENUE (amenities column filled as readable string)
 INSERT INTO `Venue` (owner_id, name, city, state, pincode, max_capacity, base_rate_per_hour, amenities) VALUES
 (1,  'Grand Hall',   'Chennai',   'TN', '600001', 500, 5000, 'WiFi, Parking, AC'),
 (2,  'Elite Center', 'Bangalore', 'KA', '560001', 300, 4000, 'WiFi, Projector, Sound System'),
@@ -288,7 +284,7 @@ INSERT INTO `Amenity` (name) VALUES
 ('WiFi'), ('Parking'), ('AC'), ('Projector'), ('Sound System'),
 ('Stage'), ('Catering'), ('Security'), ('Lighting'), ('Decoration');
 
--- VENUE AMENITY
+-- VENUE AMENITY (normalized reference, mirrors the amenities column above)
 INSERT INTO `VenueAmenity` VALUES
 (1,1),(1,2),(1,3),
 (2,1),(2,4),(2,5),
@@ -314,18 +310,18 @@ INSERT INTO `Room` (venue_id, room_no, room_name, capacity, hourly_rate) VALUES
 (8,  '801', 'Beach Hall',   350, 2800),
 (9,  '901', 'Hill Room',    100, 1000);
 
--- CUSTOMER (sample users — passwords are bcrypt hash of 'password123')
-INSERT INTO `Customer` (first_name, last_name, email, phone, password_hash, preferred_city, event_type) VALUES
-('Rahul',  'Das',    'c1@mail.com',  '9100000001', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Chennai',   'birthday'),
-('Priya',  'Nair',   'c2@mail.com',  '9100000002', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Bangalore', 'wedding'),
-('Arjun',  'Reddy',  'c3@mail.com',  '9100000003', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Hyderabad', 'corporate'),
-('Meena',  'Kumari', 'c4@mail.com',  '9100000004', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mumbai',    'social'),
-('Suresh', 'Yadav',  'c5@mail.com',  '9100000005', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Delhi',     'birthday'),
-('Anil',   'Kapoor', 'c6@mail.com',  '9100000006', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Pune',      'wedding'),
-('Kavya',  'Menon',  'c7@mail.com',  '9100000007', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Ahmedabad', 'corporate'),
-('Deepak', 'Joshi',  'c8@mail.com',  '9100000008', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Goa',       'social'),
-('Ritu',   'Shah',   'c9@mail.com',  '9100000009', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Shimla',    'birthday'),
-('Nikhil', 'Jain',   'c10@mail.com', '9100000010', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Kolkata',   'wedding');
+-- CUSTOMER
+INSERT INTO `Customer` (first_name, last_name, email, phone) VALUES
+('Rahul',  'Das',    'c1@mail.com',  '9100000001'),
+('Priya',  'Nair',   'c2@mail.com',  '9100000002'),
+('Arjun',  'Reddy',  'c3@mail.com',  '9100000003'),
+('Meena',  'Kumari', 'c4@mail.com',  '9100000004'),
+('Suresh', 'Yadav',  'c5@mail.com',  '9100000005'),
+('Anil',   'Kapoor', 'c6@mail.com',  '9100000006'),
+('Kavya',  'Menon',  'c7@mail.com',  '9100000007'),
+('Deepak', 'Joshi',  'c8@mail.com',  '9100000008'),
+('Ritu',   'Shah',   'c9@mail.com',  '9100000009'),
+('Nikhil', 'Jain',   'c10@mail.com', '9100000010');
 
 -- EVENT
 INSERT INTO `Event` (type_id, title, expected_guests, start_datetime, end_datetime) VALUES

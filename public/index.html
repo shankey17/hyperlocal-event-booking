@@ -12,24 +12,93 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
     <a class="navbar-brand fw-bold" href="/">Hyperlocal Booking</a>
-    <div class="ms-auto d-flex gap-2" id="navButtons">
-      <a class="btn btn-outline-light btn-sm" href="/login">Login</a>
-      <a class="btn btn-warning btn-sm"        href="/signup">Sign Up</a>
+    <div class="ms-auto">
+      <a class="btn btn-outline-light btn-sm me-2" href="/">Home</a>
+      <a class="btn btn-warning btn-sm"             href="/search">Search Venues</a>
     </div>
   </div>
 </nav>
 
 <header class="hero-section py-5">
-  <div class="container text-center py-4">
-    <span class="badge text-bg-primary mb-3">Demo Full Stack Project</span>
-    <h1 class="display-5 fw-bold">Hyperlocal Event &amp; Venue Booking System</h1>
-    <p class="lead text-muted mt-3 mx-auto" style="max-width:600px">
-      Discover event venues, check real-time room availability, and manage your bookings —
-      all in one place. Built with MySQL, Node.js, and Bootstrap.
-    </p>
-    <div class="mt-4 d-flex justify-content-center gap-3">
-      <a href="/signup" class="btn btn-primary btn-lg">Get Started</a>
-      <a href="/login"  class="btn btn-outline-secondary btn-lg">Login</a>
+  <div class="container">
+    <div class="row align-items-center g-4">
+
+      <!-- Left: intro text -->
+      <div class="col-lg-7">
+        <span class="badge text-bg-primary mb-3">Demo Full Stack Project</span>
+        <h1 class="display-5 fw-bold">Hyperlocal Event &amp; Venue Booking System</h1>
+        <p class="lead text-muted mt-3">
+          A database-driven platform for venue discovery, enquiry collection, and room-availability checking.
+          Built with MySQL, Node.js, and Bootstrap.
+        </p>
+
+        <div class="row g-3 mt-4">
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Venue Discovery</strong>
+              <p class="mb-0 text-muted small">Search by city and guest count.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Availability Check</strong>
+              <p class="mb-0 text-muted small">Live room availability by date and time.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
+              <strong>Lead Capture</strong>
+              <p class="mb-0 text-muted small">Enquiry saved to MySQL SurveyLead table.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: enquiry form -->
+      <div class="col-lg-5">
+        <div class="card shadow border-0">
+          <div class="card-body p-4">
+            <h3 class="h4 fw-bold mb-1">Enquiry / Signup</h3>
+            <p class="text-muted mb-4">Submit your details to continue to venue search.</p>
+
+            <form id="signupForm" class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Full Name</label>
+                <input id="fullName" class="form-control" type="text" placeholder="Your name" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input id="email" class="form-control" type="email" placeholder="name@example.com" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Phone</label>
+                <input id="phone" class="form-control" type="text" placeholder="Mobile number" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Preferred City</label>
+                <input id="preferredCity" class="form-control" type="text" placeholder="e.g. Chennai" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Event Type</label>
+                <select id="eventType" class="form-select" required>
+                  <option value="">Select</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="wedding">Wedding</option>
+                  <option value="corporate">Corporate</option>
+                  <option value="social">Social</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-12 d-grid">
+                <button class="btn btn-primary btn-lg" type="submit">Submit Enquiry</button>
+              </div>
+            </form>
+
+            <div id="signupMsg" class="alert mt-3 d-none" role="alert"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </header>
@@ -40,24 +109,24 @@
       <div class="col-md-4">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h5 class="card-title">Venue Discovery</h5>
-            <p class="card-text text-muted">Search venues by city and guest count across multiple states.</p>
+            <h5 class="card-title">Venue Booking</h5>
+            <p class="card-text text-muted">Find suitable venues for birthdays, weddings, meetings, and social events.</p>
           </div>
         </div>
       </div>
       <div class="col-md-4">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h5 class="card-title">Availability Check</h5>
-            <p class="card-text text-muted">See live room availability by date and time using reservation data.</p>
+            <h5 class="card-title">Venue Services</h5>
+            <p class="card-text text-muted">View associated service vendors like catering and decoration.</p>
           </div>
         </div>
       </div>
       <div class="col-md-4">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h5 class="card-title">Secure Login</h5>
-            <p class="card-text text-muted">Accounts protected with bcrypt password hashing and server-side sessions.</p>
+            <h5 class="card-title">Database Demo</h5>
+            <p class="card-text text-muted">Leads saved in MySQL; venue data fetched live from backend APIs.</p>
           </div>
         </div>
       </div>
@@ -65,24 +134,6 @@
   </div>
 </section>
 
-<script>
-  // If already logged in, swap nav buttons to show user name + logout
-  fetch('/api/auth/me')
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById('navButtons').innerHTML = `
-          <span class="navbar-text text-light me-2">Hi, ${data.customer.name.split(' ')[0]}</span>
-          <a class="btn btn-outline-light btn-sm me-1" href="/search">Search Venues</a>
-          <button class="btn btn-warning btn-sm" onclick="logout()">Logout</button>
-        `;
-      }
-    }).catch(() => {});
-
-  async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    location.reload();
-  }
-</script>
+<script src="app.js"></script>
 </body>
 </html>

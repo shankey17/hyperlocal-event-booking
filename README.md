@@ -1,106 +1,122 @@
 # Hyperlocal Event & Venue Booking System
 
-A small full-stack demo project for a DBMS assignment.
+A full-stack DBMS demo project — Node.js + Express backend, MySQL database (Aiven), hosted on Railway.
 
-## Features
-- Home page with enquiry form
-- SurveyLead table stores enquiries
-- Venue search page with filters
-- Availability check using RoomReservation data
-- Node.js + Express backend
-- MySQL database integration
-- Bootstrap frontend via CDN
-- Deployment-ready for Render + Aiven
+---
 
 ## Folder structure
 
-```text
+```
 hyperlocal_event_booking/
-├── server.js
-├── db.js
-├── schema.sql
-├── .env.example
+├── server.js          ← Express server + all API routes
+├── db.js              ← MySQL connection pool (uses DATABASE_URL)
+├── schema.sql         ← Full DB schema + sample data (run once on Aiven)
 ├── package.json
 ├── README.md
 └── public/
-    ├── index.html
-    ├── search.html
-    ├── styles.css
-    └── app.js
+    ├── index.html     ← Homepage with enquiry form
+    ├── search.html    ← Venue search + availability page
+    ├── app.js         ← Frontend JS (fetch calls, rendering)
+    └── styles.css
 ```
+
+---
+
+## Database tables
+
+| Table | Purpose |
+|---|---|
+| `Owner` | Venue owners |
+| `Venue` | Venue details (includes `amenities` as a comma-separated column) |
+| `Amenity` / `VenueAmenity` | Normalized amenity reference (for DBMS demo) |
+| `Room` | Rooms inside each venue |
+| `Customer` | Customers |
+| `Event` / `EventType` | Event details and type lookup |
+| `Booking` / `BookingStatus` | Bookings with status FK |
+| `Payment` / `PaymentStatus` | Payment records |
+| `ServiceVendor` / `BookingService` | External vendors and booked services |
+| `RoomReservation` | Time-slot reservations; overlap prevented by trigger |
+| `SurveyLead` | Enquiry form submissions from the homepage |
+
+---
+
+## API endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/health` | DB connectivity check |
+| POST | `/api/signup` | Save homepage enquiry to `SurveyLead` |
+| GET | `/api/venues?city=&guests=&start=&end=` | Search venues with room availability |
+| GET | `/api/venues/:id` | Single venue detail |
+
+---
 
 ## Local setup
 
-1. Install Node.js LTS.
-2. Open terminal inside the project folder.
-3. Install packages:
-```bash
-npm install
-```
-4. Create a MySQL database and run `schema.sql`.
-5. Copy `.env.example` to `.env` and fill in your Aiven credentials.
-6. Start the app:
-```bash
-npm start
-```
-7. Open:
-```text
-http://localhost:3000
-```
+1. Install **Node.js LTS**.
+2. Install packages:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file:
+   ```
+   DATABASE_URL=mysql://user:password@host:port/defaultdb?ssl-mode=REQUIRED
+   PORT=3000
+   ```
+4. Run `schema.sql` once in your MySQL client (Aiven or local).
+5. Start the server:
+   ```bash
+   npm start
+   ```
+6. Open `http://localhost:3000`
 
-## Database import
+---
 
-Run `schema.sql` in MySQL Workbench or your preferred MySQL client.
+## Deployment
 
-The schema creates these tables:
-- Owner
-- Venue
-- Room
-- Customer
-- Event
-- Booking
-- Payment
-- ServiceVendor
-- BookingService
-- RoomReservation
-- SurveyLead
+### Aiven (MySQL)
 
-## Deployment guide
+1. Create an **Aiven MySQL** service.
+2. From the Aiven console, copy the **Service URI** — it looks like:
+   ```
+   mysql://avnadmin:password@host:port/defaultdb?ssl-mode=REQUIRED
+   ```
+3. Open **Query Editor** (or connect via MySQL Workbench) and run `schema.sql`.
 
-### Aiven MySQL
-1. Create an Aiven MySQL service.
-2. Note the host, port, user, password, and database name.
-3. Import `schema.sql` into the database.
-4. Keep the service credentials for Render.
+### Railway
 
-### Render
 1. Push the project to GitHub.
-2. Create a new Render Web Service.
-3. Connect the GitHub repository.
-4. Set build command:
-```bash
-npm install
-```
-5. Set start command:
-```bash
-node server.js
-```
-6. Add environment variables:
-- DB_HOST
-- DB_USER
-- DB_PASSWORD
-- DB_NAME
-- DB_PORT
-- PORT (Render sets this automatically, so optional)
-7. Deploy the service.
+2. On Railway: **New Project → Deploy from GitHub repo**.
+3. Add one environment variable:
+   ```
+   DATABASE_URL = <your Aiven Service URI>
+   ```
+   Railway sets `PORT` automatically — no need to add it.
+4. Set the start command (Railway usually auto-detects from `package.json`):
+   ```
+   node server.js
+   ```
+5. Deploy. Railway will run `npm install` and start the server.
 
-## API endpoints
-- `POST /api/signup`
-- `GET /api/venues?city=&guests=&start=&end=`
-- `GET /api/venues/:id`
+> **Important:** Do not add `DB_HOST`, `DB_USER`, etc. separately.  
+> This project only uses `DATABASE_URL`. Aiven's Service URI already contains all credentials.
 
-## Notes
-- Frontend is served directly by Express from the `public` folder.
-- The homepage is `/`.
-- The search page is `/search`.
-- Signup redirects to search after saving the enquiry.
+---
+
+## How availability checking works
+
+When you search with a time slot, the backend runs this check per room:
+
+```sql
+CASE
+  WHEN EXISTS (
+    SELECT 1 FROM RoomReservation rr
+    WHERE rr.room_id = r.room_id
+      AND ? < rr.reserved_to    -- your start < existing end
+      AND ? > rr.reserved_from  -- your end   > existing start
+  ) THEN 0   -- overlaps → Booked
+  ELSE 1     -- no overlap → Available
+END AS is_available
+```
+
+A trigger (`trg_no_overlap`) also prevents overlapping inserts at the DB level.

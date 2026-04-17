@@ -14,7 +14,7 @@
     <a class="navbar-brand fw-bold" href="/">Hyperlocal Booking</a>
     <div class="ms-auto">
       <a class="btn btn-outline-light btn-sm me-2" href="/">Home</a>
-      <a class="btn btn-warning btn-sm" href="/search">Search Venues</a>
+      <a class="btn btn-warning btn-sm"             href="/search">Search Venues</a>
     </div>
   </div>
 </nav>
@@ -22,45 +22,49 @@
 <header class="hero-section py-5">
   <div class="container">
     <div class="row align-items-center g-4">
+
+      <!-- Left: intro text -->
       <div class="col-lg-7">
         <span class="badge text-bg-primary mb-3">Demo Full Stack Project</span>
-        <h1 class="display-5 fw-bold">Hyperlocal Event & Venue Booking System</h1>
+        <h1 class="display-5 fw-bold">Hyperlocal Event &amp; Venue Booking System</h1>
         <p class="lead text-muted mt-3">
-          A simple database-driven platform for venue discovery, enquiry collection, and availability checking.
-          Designed for college demonstration with MySQL, Node.js, and Bootstrap.
+          A database-driven platform for venue discovery, enquiry collection, and room-availability checking.
+          Built with MySQL, Node.js, and Bootstrap.
         </p>
+
         <div class="row g-3 mt-4">
           <div class="col-md-4">
             <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
               <strong>Venue Discovery</strong>
-              <p class="mb-0 text-muted">Search venues by city and guest count.</p>
+              <p class="mb-0 text-muted small">Search by city and guest count.</p>
             </div>
           </div>
           <div class="col-md-4">
             <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
               <strong>Availability Check</strong>
-              <p class="mb-0 text-muted">See room availability by date and time.</p>
+              <p class="mb-0 text-muted small">Live room availability by date and time.</p>
             </div>
           </div>
           <div class="col-md-4">
             <div class="feature-box p-3 bg-white rounded shadow-sm h-100">
-              <strong>Survey Lead Capture</strong>
-              <p class="mb-0 text-muted">Collect enquiry details for follow-up.</p>
+              <strong>Lead Capture</strong>
+              <p class="mb-0 text-muted small">Enquiry saved to MySQL SurveyLead table.</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Right: enquiry form -->
       <div class="col-lg-5">
         <div class="card shadow border-0">
           <div class="card-body p-4">
-            <h3 class="h4 fw-bold mb-2">Enquiry / Signup</h3>
+            <h3 class="h4 fw-bold mb-1">Enquiry / Signup</h3>
             <p class="text-muted mb-4">Submit your details to continue to venue search.</p>
 
             <form id="signupForm" class="row g-3">
               <div class="col-12">
                 <label class="form-label">Full Name</label>
-                <input id="fullName" class="form-control" type="text" placeholder="Enter your name" required>
+                <input id="fullName" class="form-control" type="text" placeholder="Your name" required>
               </div>
               <div class="col-md-6">
                 <label class="form-label">Email</label>
@@ -72,7 +76,7 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Preferred City</label>
-                <input id="preferredCity" class="form-control" type="text" placeholder="Kolkata" required>
+                <input id="preferredCity" class="form-control" type="text" placeholder="e.g. Chennai" required>
               </div>
               <div class="col-md-6">
                 <label class="form-label">Event Type</label>
@@ -94,6 +98,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </header>
@@ -105,7 +110,7 @@
         <div class="card shadow-sm h-100">
           <div class="card-body">
             <h5 class="card-title">Venue Booking</h5>
-            <p class="card-text text-muted">Find suitable venues for birthday parties, weddings, meetings, and social events.</p>
+            <p class="card-text text-muted">Find suitable venues for birthdays, weddings, meetings, and social events.</p>
           </div>
         </div>
       </div>
@@ -113,15 +118,15 @@
         <div class="card shadow-sm h-100">
           <div class="card-body">
             <h5 class="card-title">Venue Services</h5>
-            <p class="card-text text-muted">Show additional service vendors such as catering and decoration support.</p>
+            <p class="card-text text-muted">View associated service vendors like catering and decoration.</p>
           </div>
         </div>
       </div>
       <div class="col-md-4">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h5 class="card-title">Database Demonstration</h5>
-            <p class="card-text text-muted">The system stores leads in MySQL and uses backend APIs to fetch venue data dynamically.</p>
+            <h5 class="card-title">Database Demo</h5>
+            <p class="card-text text-muted">Leads saved in MySQL; venue data fetched live from backend APIs.</p>
           </div>
         </div>
       </div>
